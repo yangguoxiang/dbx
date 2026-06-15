@@ -78,7 +78,7 @@ import DangerConfirmDialog from "@/components/editor/DangerConfirmDialog.vue";
 import ImagePreviewDialog from "@/components/grid/ImagePreviewDialog.vue";
 import TemporalCellEditor from "@/components/grid/TemporalCellEditor.vue";
 import EnumCellEditor from "@/components/grid/EnumCellEditor.vue";
-import type { QueryResult, ColumnInfo, DatabaseType, ForeignKeyInfo, IndexInfo, TriggerInfo } from "@/types/database";
+import type { QueryResult, ColumnInfo, DatabaseType, ForeignKeyInfo, IndexInfo, TriggerInfo, TableInfoTab } from "@/types/database";
 import * as api from "@/lib/api";
 import { coerceDataGridCellValue, dataGridCellDisplayText, dataGridCellEditorText } from "@/lib/dataGridCellCoercion";
 import { createColumnDrafts } from "@/lib/tableStructureEditorState";
@@ -174,6 +174,7 @@ const props = defineProps<{
     columns: ColumnInfo[];
     primaryKeys: string[];
   };
+  tableInfoTab?: TableInfoTab;
   pageOffset?: number;
   pageLimit?: number;
   countSql?: string;
@@ -5395,7 +5396,6 @@ async function prefetchCopyStatements() {
 
 const sqlOneLiner = computed(() => props.sql?.replace(/\s+/g, " ").trim() || "");
 
-type TableInfoTab = "columns" | "indexes" | "foreignKeys" | "triggers" | "ddl";
 type TableInfoTabItem = { id: TableInfoTab; label: string; icon: Component; count?: number };
 
 const TABLE_INFO_DRAWER_MIN_WIDTH = 240;
@@ -5542,6 +5542,14 @@ async function selectTableInfoTab(tab: TableInfoTab) {
   else if (nextTab === "foreignKeys") await fetchForeignKeys();
   else if (nextTab === "triggers") await fetchTriggers();
 }
+
+watch(
+  () => [props.tableInfoTab, props.connectionId, props.database, props.tableMeta?.schema, props.tableMeta?.tableName] as const,
+  ([tab]) => {
+    if (tab) void selectTableInfoTab(tab);
+  },
+  { immediate: true },
+);
 
 async function fetchDdl() {
   if (!props.connectionId || !props.tableMeta) return;

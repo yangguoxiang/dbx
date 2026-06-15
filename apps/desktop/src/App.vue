@@ -64,6 +64,7 @@ import { buildHistoryAiAnalysisPrompt } from "@/lib/historyAiAnalysis";
 import { countAvailableAgentDriverUpdates, type AgentDriverUpdateBadgeState } from "@/lib/agentDriverUpdateBadge";
 import { safeLocalStorageGet, safeLocalStorageSet } from "@/lib/safeStorage";
 import { rankSavedSqlHistory } from "@/lib/savedSqlHistory";
+import { isSchemaAware, isSingleDatabase } from "@/lib/databaseFeatureSupport";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -757,20 +758,28 @@ async function onClickTable(tableName: string) {
   const tab = activeTab.value;
   if (!tab) return;
   const connectionId = tab.connectionId;
-  const database = tab.database;
+  let database = tab.database;
+  let schema = tab.schema;
 
-  // Parse schema.table if needed
-  const [schema, rawTableName] = tableName.includes(".") ? tableName.split(".") : [database, tableName];
+  const parts = tableName.split(".").filter(Boolean);
+  const rawTableName = parts[parts.length - 1] || tableName;
+  if (parts.length >= 3) {
+    database = parts[parts.length - 3] || database;
+    schema = parts[parts.length - 2];
+  } else if (parts.length === 2) {
+    const dbType = connectionStore.getConfig(connectionId)?.db_type;
+    if (dbType && !isSchemaAware(dbType) && !isSingleDatabase(dbType)) {
+      database = parts[0] || database;
+      schema = undefined;
+    } else {
+      schema = parts[0];
+    }
+  }
 
   try {
-    await connectionStore.ensureConnected(connectionId);
-    const ddl = await api.getTableDdl(connectionId, database, schema || database, rawTableName);
-
-    // Create a new tab with the DDL
-    const tabId = queryStore.createTab(connectionId, database, `DDL - ${rawTableName}`);
-    queryStore.updateSql(tabId, ddl);
+    await openTableTarget({ connectionId, database, schema, tableName: rawTableName }, { tableInfoTab: "ddl" });
   } catch (e: any) {
-    toast(`Failed to get table DDL: ${e?.message || String(e)}`, 5000);
+    toast(t("connection.connectFailed", { message: translateBackendError(t, e?.message || String(e)) }), 5000);
   }
 }
 

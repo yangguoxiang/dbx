@@ -461,6 +461,8 @@ export interface TreeNode {
   };
 }
 
+export type TableInfoTab = "columns" | "indexes" | "foreignKeys" | "triggers" | "ddl";
+
 export interface QueryTab {
   id: string;
   title: string;
@@ -530,6 +532,7 @@ export interface QueryTab {
     columns: ColumnInfo[];
     primaryKeys: string[];
   };
+  tableInfoTab?: TableInfoTab;
   queryAnalysis?: {
     schema?: string;
     schemaQuoted?: boolean;

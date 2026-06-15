@@ -54,7 +54,7 @@ import { formatShortcut } from "@/lib/shortcutRegistry";
 import { effectiveDatabaseTypeForConnection } from "@/lib/jdbcDialect";
 import { chartableColumnIndexes } from "@/lib/chartData";
 import { useTabScroll } from "@/composables/useTabScroll";
-import type { QueryTab, ConnectionConfig } from "@/types/database";
+import type { QueryTab, ConnectionConfig, TableInfoTab } from "@/types/database";
 import type { SqlFormatDialect } from "@/lib/sqlFormatter";
 
 type DataGridHandle = {
@@ -74,7 +74,7 @@ type DataGridHandle = {
   canToggleAllNullColumns: boolean;
   toggleAllNullColumns: () => void;
   showDdl: boolean;
-  toggleDdl: () => void;
+  toggleDdl: (tab?: TableInfoTab) => void;
   multiRowTranspose: boolean;
   setMultiRowTranspose: (value: boolean) => void;
   exportCsv: () => Promise<void>;
@@ -712,6 +712,7 @@ defineExpose({ focusSearch, refreshData, handleModRTarget });
                 :database="activeTab.database"
                 :schema="activeTab.schema"
                 :table-meta="activeTab.tableMeta"
+                :table-info-tab="activeTab.tableInfoTab"
                 :page-offset="activeTab.resultPageOffset"
                 :page-limit="activeTab.resultPageLimit"
                 :count-sql="activeTab.resultCountSql"
@@ -900,6 +901,7 @@ defineExpose({ focusSearch, refreshData, handleModRTarget });
           :connection-id="activeTab.connectionId"
           :database="activeTab.database"
           :table-meta="activeDataTabTableMeta"
+          :table-info-tab="activeTab.tableInfoTab"
           :page-offset="activeTab.resultPageOffset"
           :page-limit="activeTab.resultPageLimit"
           :on-execute-sql="async (sql: string) => emit('executeSql', sql)"

@@ -184,6 +184,7 @@ let editorIsActive = true;
 let tableReferenceDropListenerRegistered = false;
 let imeCompositionActive = false;
 let pendingImeModelEmit = false;
+const tableNavigationHoverClass = "query-editor--table-navigation-hover";
 
 function editorThemeAppearance() {
   return isDark.value ? "dark" : "light";
@@ -293,6 +294,33 @@ function syncContextMenuState(currentView: EditorViewType) {
 
 function focusEditor() {
   view.value?.focus();
+}
+
+function clearTableNavigationHover() {
+  editorRef.value?.classList.remove(tableNavigationHoverClass);
+}
+
+function tableNavigationIdentifierAt(currentView: EditorViewType, event: MouseEvent): string | null {
+  if (!props.connectionId || props.database == null) return null;
+  const pos = currentView.posAtCoords({ x: event.clientX, y: event.clientY });
+  if (pos == null) return null;
+  const identifier = extractIdentifierAt(currentView.state.doc.toString(), pos);
+  if (!identifier || isSqlKeyword(identifier)) return null;
+  return identifier;
+}
+
+function updateTableNavigationHover(currentView: EditorViewType, event: MouseEvent) {
+  if (!event.metaKey && !event.ctrlKey) {
+    clearTableNavigationHover();
+    return false;
+  }
+  const identifier = tableNavigationIdentifierAt(currentView, event);
+  editorRef.value?.classList.toggle(tableNavigationHoverClass, !!identifier);
+  return !!identifier;
+}
+
+function clearTableNavigationHoverOnModifierRelease(event: KeyboardEvent) {
+  if (!event.metaKey && !event.ctrlKey) clearTableNavigationHover();
 }
 
 function executeFromContextMenu() {
@@ -1473,6 +1501,8 @@ onMounted(async () => {
   codeMirrorRedo = redo;
   codeMirrorSelectAll = selectAll;
   codeMirrorInsertNewlineKeepIndent = insertNewlineKeepIndent;
+  window.addEventListener("keyup", clearTableNavigationHoverOnModifierRelease);
+  window.addEventListener("blur", clearTableNavigationHover);
 
   const diagnosticTheme = EditorView.baseTheme({
     ".cm-sql-error": {
@@ -1701,7 +1731,18 @@ onMounted(async () => {
           scheduleFontSizeCommit(next);
           return true;
         },
+        mousemove: (event: MouseEvent) => {
+          const currentView = view.value;
+          if (!currentView) return false;
+          updateTableNavigationHover(currentView, event);
+          return false;
+        },
+        mouseleave: () => {
+          clearTableNavigationHover();
+          return false;
+        },
         mousedown: (event: MouseEvent) => {
+          clearTableNavigationHover();
           // Click without modifier -> close column panel
           if (!event.metaKey && !event.ctrlKey) {
             if (event.button === 0) {
@@ -1948,6 +1989,7 @@ watch(
 function pauseQueryEditorBackgroundWork() {
   flushEditorViewport();
   flushEditorSelection();
+  clearTableNavigationHover();
   editorIsActive = false;
   semanticDiagnosticRunId++;
   if (semanticDiagnosticTimer) clearTimeout(semanticDiagnosticTimer);
@@ -1980,6 +2022,8 @@ onBeforeUnmount(() => {
     viewportRestoreFrame = null;
   }
   view.value?.scrollDOM.removeEventListener("scroll", scheduleEditorViewportEmit);
+  window.removeEventListener("keyup", clearTableNavigationHoverOnModifierRelease);
+  window.removeEventListener("blur", clearTableNavigationHover);
   zoomCommitScheduler.dispose();
   view.value?.destroy();
 });
@@ -2124,3 +2168,10 @@ defineExpose({ openSearch, openReplace, scrollCursorIntoView });
     <EditorSearchPanel ref="searchPanelRef" :view="view" />
   </div>
 </template>
+
+<style scoped>
+.query-editor--table-navigation-hover :deep(.cm-content),
+.query-editor--table-navigation-hover :deep(.cm-line) {
+  cursor: pointer;
+}
+</style>
